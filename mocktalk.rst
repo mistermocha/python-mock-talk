@@ -3,7 +3,7 @@ Mocks for Testing
 :Author: Brian Weber, SRE at Twitter
 :Contact: bweber@twitter.com
 :Twitter: @mistermocha
-:Link: `<https://github.com/mistermocha/python-mock-talk/>`_
+:Link: https://github.com/mistermocha/python-mock-talk/
 
 Headers
 =======
@@ -20,16 +20,25 @@ Why I wrote this talk
 
 Timing! I was asked to give a talk after writing a bunch of mock test code.
 
-- Testing makes better code
-- Mocking can make better tests
-- Learn from my experience
+Why I wrote this talk
+=====================
+
+My script that I manages talks to
+
+- kerberos
+- git
+- aurora
+- package storage
+- jira
+- email
+- shared libraries
 
 What is mocking?
 =================
 
 ``unittest.mock`` is a library for testing in Python. It allows you to replace parts of your system under test with mock objects and make assertions about how they have been used.
 
-:sub:`<https://docs.python.org/3/library/unittest.mock.html>`_
+Source: https://docs.python.org/3/library/unittest.mock.html
 
 Why should I mock?
 ==================
@@ -547,4 +556,4 @@ Thank you!
 :Author: Brian Weber, SRE at Twitter
 :Contact: bweber@twitter.com
 :Twitter: @mistermocha
-:Link: `<https://github.com/mistermocha/python-mock-talk/>`_
+:Link: https://github.com/mistermocha/python-mock-talk/
