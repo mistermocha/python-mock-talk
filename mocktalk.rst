@@ -23,7 +23,7 @@ Timing! I was asked to give a talk after writing a bunch of mock test code.
 Why I wrote this talk
 =====================
 
-My script that I manages talks to
+My script that I manage talks to
 
 - kerberos
 - git
