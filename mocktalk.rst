@@ -3,6 +3,7 @@ Mocks for Testing
 :Author: Brian Weber, SRE at Twitter
 :Contact: bweber@twitter.com
 :Twitter: @mistermocha
+:Link: `<https://github.com/mistermocha/python-mock-talk/>`_
 
 Headers
 =======
@@ -28,7 +29,7 @@ What is mocking?
 
 ``unittest.mock`` is a library for testing in Python. It allows you to replace parts of your system under test with mock objects and make assertions about how they have been used.
 
-:sub:`https://docs.python.org/3/library/unittest.mock.html`
+:sub:`<https://docs.python.org/3/library/unittest.mock.html>`_
 
 Why should I mock?
 ==================
@@ -546,3 +547,4 @@ Thank you!
 :Author: Brian Weber, SRE at Twitter
 :Contact: bweber@twitter.com
 :Twitter: @mistermocha
+:Link: `<https://github.com/mistermocha/python-mock-talk/>`_
