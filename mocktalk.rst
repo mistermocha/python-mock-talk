@@ -526,6 +526,7 @@ When not to use a mock
 ======================
 
 General rules for when to use a mock:
+
 - Look for where your code talks to things that are not your code. You most likely want to mock that.
 - Look for where a unit your code requires isolation from the rest of your code for a good test. You
   most likely want to mock that
