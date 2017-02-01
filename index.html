@@ -89,7 +89,7 @@ document.write('<a h'+'ref'+'="ma'+'ilto'+':'+e+'" clas'+'s="em' + 'ail">'+e+'<\
 </div>
 <div id="why-i-wrote-this-talk-1" class="slide section level1">
 <h1>Why I wrote this talk</h1>
-<p>My script that I manages talks to</p>
+<p>My script that I manage talks to</p>
 <ul>
 <li>kerberos</li>
 <li>git</li>
@@ -99,11 +99,41 @@ document.write('<a h'+'ref'+'="ma'+'ilto'+':'+e+'" clas'+'s="em' + 'ail">'+e+'<\
 <li>email</li>
 <li>shared libraries</li>
 </ul>
+<p>How do I test my code without beating up these services?</p>
+</div>
+<div id="what-is-testing" class="slide section level1">
+<h1>What is testing?</h1>
+<p>Testing makes sure your code behaves as expected</p>
+</div>
+<div id="what-is-testing-1" class="slide section level1">
+<h1>What is testing?</h1>
+<ul>
+<li>Unit: distinct pieces of code (e.g., just this function)</li>
+<li>Integration: the collection of all your code, plus how it merges with shared libs &amp; 3rd party</li>
+<li>Acceptance: full-system, full-stack</li>
+</ul>
+</div>
+<div id="what-is-testing-2" class="slide section level1">
+<h1>What is testing?</h1>
+<ul>
+<li>Unit: Just this function</li>
+<li>Integration: When all the functions talk to each other</li>
+<li>Acceptance: When the whole app talks to everything else</li>
+</ul>
 </div>
 <div id="what-is-mocking" class="slide section level1">
 <h1>What is mocking?</h1>
 <p><code>unittest.mock</code> is a library for testing in Python. It allows you to replace parts of your system under test with mock objects and make assertions about how they have been used.</p>
 <p>Source: <a href="https://docs.python.org/3/library/unittest.mock.html" class="uri">https://docs.python.org/3/library/unittest.mock.html</a></p>
+</div>
+<div id="what-do-i-mock" class="slide section level1">
+<h1>What do I mock?</h1>
+<ul>
+<li>Unit: Other modules/functions/etc to isolate one function/module/etc</li>
+<li>Integration: Just things that reach outside of your application (e.g., command-line)</li>
+<li>Acceptance: Only when you can't use a testing API</li>
+</ul>
+<p>Mocks are primarily used for unit testing. There may be some place in integration testing, highly unlikely in acceptance testing.</p>
 </div>
 <div id="why-should-i-mock" class="slide section level1">
 <h1>Why should I mock?</h1>
@@ -132,6 +162,7 @@ document.write('<a h'+'ref'+'="ma'+'ilto'+':'+e+'" clas'+'s="em' + 'ail">'+e+'<\
     my_object.sub_method <span class="op">=</span> Mock()
     my_object.visible_method()
     my_object.sub_method.assert_called_with(<span class="st">&quot;arg&quot;</span>, this<span class="op">=</span><span class="st">&quot;that&quot;</span>)</code></pre></div>
+<p>This isolates one function from talking to another function within the same class.</p>
 </div>
 <div id="an-example-of-using-a-mock" class="slide section level1">
 <h1>An example of using a mock</h1>
@@ -440,6 +471,55 @@ mocked.myfunc.side_effect <span class="op">=</span> my_side_effect
     mocked_get.assert_called()
     mocked_get.assert_called_with(<span class="st">&#39;http://example.com/&#39;</span>)</code></pre></div>
 </div>
+<div id="another-example-4" class="slide section level1">
+<h1>Another example</h1>
+<p>How do I patch something used twice?</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co"># yourcode.py</span>
+<span class="im">from</span> some.library <span class="im">import</span> AnotherThing
+
+<span class="kw">class</span> MyClass(<span class="bu">object</span>):
+    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, this, that):
+        <span class="va">self</span>.this <span class="op">=</span> AnotherThing(this)
+        <span class="va">self</span>.that <span class="op">=</span> AnotherThing(that)
+
+    <span class="kw">def</span> do_this(<span class="va">self</span>):
+        <span class="va">self</span>.this.do()
+
+    <span class="kw">def</span> do_that(<span class="va">self</span>):
+        <span class="va">self</span>.that.do()
+
+    <span class="kw">def</span> do_more(<span class="va">self</span>):
+        got_it <span class="op">=</span> <span class="va">self</span>.this.get_it()
+        that_too <span class="op">=</span> <span class="va">self</span>.that.do_it(got_it)
+        <span class="cf">return</span> that_too</code></pre></div>
+<p>Patching some.library.AnotherThing doesn't help directly, because AnotherThing just becomes the same mock.</p>
+</div>
+<div id="another-example-5" class="slide section level1">
+<h1>Another example</h1>
+<p>Replace in the instance</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> test_my_class():
+    my_obj <span class="op">=</span> MyClass(<span class="st">&quot;fake this&quot;</span>, <span class="st">&quot;fake that&quot;</span>)
+    my_obj.this <span class="op">=</span> Mock(spec_set<span class="op">=</span><span class="st">&#39;some.library.AnotherThing&#39;</span>)
+    my_obj.that <span class="op">=</span> Mock(spec_set<span class="op">=</span><span class="st">&#39;some.library.AnotherThing&#39;</span>)
+
+    my_obj.do_this()
+    my_obj.this.do.assert_called()
+    my_obj.do_that()
+    my_obj.that.do.assert_called()</code></pre></div>
+</div>
+<div id="another-example-6" class="slide section level1">
+<h1>Another example</h1>
+<p>Patch the namespace</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="at">@patch</span>(<span class="st">&#39;yourcode.AnotherThing&#39;</span>, autospec<span class="op">=</span><span class="va">True</span>)
+<span class="kw">def</span> test_my_class(mock_thing):
+    <span class="kw">def</span> fake_init(<span class="op">*</span>args):
+        <span class="cf">return</span> Mock(args)
+    mock_thing.side_effect <span class="op">=</span> fake_init
+
+    my_obj <span class="op">=</span> MyClass(<span class="st">&quot;fake this&quot;</span>, <span class="st">&quot;fake that&quot;</span>)
+    my_obj.this.called_with(<span class="st">&quot;fake this&quot;</span>)
+    my_obj.that.called_with(<span class="st">&quot;fake that&quot;</span>)</code></pre></div>
+</div>
 <div id="when-to-use-a-mock" class="slide section level1">
 <h1>When to use a mock</h1>
 <p>Replace a part of your code with a mock so it pretends like it's doing something</p>
@@ -498,6 +578,7 @@ mocked.myfunc.side_effect <span class="op">=</span> my_side_effect
 <ul>
 <li>Never mock the filesystem</li>
 <li>Be judicious about mocking shared libraries (integration tests)</li>
+<li>When you actually <em>want</em> to talk to an API or CLI (acceptance tests)</li>
 </ul>
 </div>
 <div id="when-not-to-use-a-mock-1" class="slide section level1">

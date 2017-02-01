@@ -33,12 +33,44 @@ My script that I manage talks to
 - email
 - shared libraries
 
+How do I test my code without beating up these services?
+
+What is testing?
+================
+
+Testing makes sure your code behaves as expected
+
+What is testing?
+================
+
+- Unit: distinct pieces of code (e.g., just this function)
+- Integration: the collection of all your code, plus how it merges with shared libs & 3rd party
+- Acceptance: full-system, full-stack
+
+What is testing?
+================
+
+- Unit: Just this function
+- Integration: When all the functions talk to each other
+- Acceptance: When the whole app talks to everything else
+
 What is mocking?
 =================
 
-``unittest.mock`` is a library for testing in Python. It allows you to replace parts of your system under test with mock objects and make assertions about how they have been used.
+``unittest.mock`` is a library for testing in Python. It allows you to replace parts of your system
+under test with mock objects and make assertions about how they have been used.
 
 Source: https://docs.python.org/3/library/unittest.mock.html
+
+What do I mock?
+===============
+
+- Unit: Other modules/functions/etc to isolate one function/module/etc
+- Integration: Just things that reach outside of your application (e.g., command-line)
+- Acceptance: Only when you can't use a testing API
+
+Mocks are primarily used for unit testing. There may be some place in integration testing, highly
+unlikely in acceptance testing.
 
 Why should I mock?
 ==================
@@ -70,9 +102,11 @@ Mock objects intend to replace another part of code so that it pretends to be th
        my_object.visible_method()
        my_object.sub_method.assert_called_with("arg", this="that")
 
+This isolates one function from talking to another function within the same class.
+
 An example of using a mock
 ==========================
-
+ 
 Replacements can be done with object patching
 
 .. code-block:: python
@@ -137,6 +171,7 @@ An example of using a mock
   object by applying behavior to ``stdout`` and ``wait``, which get used in the function
 - Now when ``count_the_shells`` is executed, it calls the mock instead of ``Popen`` and gets back
   expected values.
+
 
 About the mock library
 ======================
@@ -453,6 +488,69 @@ Another example
        mocked_get.assert_called()
        mocked_get.assert_called_with('http://example.com/')
 
+Another example
+===============
+
+How do I patch something used twice?
+
+.. code-block:: python
+
+  # yourcode.py
+  from some.library import AnotherThing
+ 
+  class MyClass(object):
+      def __init__(self, this, that):
+          self.this = AnotherThing(this)
+          self.that = AnotherThing(that)
+
+      def do_this(self):
+          self.this.do()
+
+      def do_that(self):
+          self.that.do()
+
+      def do_more(self):
+          got_it = self.this.get_it()
+          that_too = self.that.do_it(got_it)
+          return that_too
+
+Patching `some.library.AnotherThing` doesn't help directly, because `AnotherThing` just becomes the
+same mock.
+
+Another example
+===============
+
+Replace in the instance
+
+.. code-block:: python
+
+   def test_my_class():
+       my_obj = MyClass("fake this", "fake that")
+       my_obj.this = Mock(spec_set='some.library.AnotherThing')
+       my_obj.that = Mock(spec_set='some.library.AnotherThing')
+
+       my_obj.do_this()
+       my_obj.this.do.assert_called()
+       my_obj.do_that()
+       my_obj.that.do.assert_called()
+
+Another example
+===============
+
+Patch the namespace
+
+.. code-block:: python
+
+   @patch('yourcode.AnotherThing', autospec=True)
+   def test_my_class(mock_thing):
+       def fake_init(*args):
+           return Mock(args)
+       mock_thing.side_effect = fake_init
+
+       my_obj = MyClass("fake this", "fake that")
+       my_obj.this.called_with("fake this")
+       my_obj.that.called_with("fake that")
+
 
 When to use a mock
 ==================
@@ -525,6 +623,7 @@ When not to use a mock
 
 - Never mock the filesystem
 - Be judicious about mocking shared libraries (integration tests)
+- When you actually *want* to talk to an API or CLI (acceptance tests)
 
 When not to use a mock
 ======================
