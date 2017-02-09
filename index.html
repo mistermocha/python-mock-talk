@@ -86,38 +86,82 @@ document.write('<a h'+'ref'+'="ma'+'ilto'+':'+e+'" clas'+'s="em' + 'ail">'+e+'<\
 <div id="why-i-wrote-this-talk" class="slide section level1">
 <h1>Why I wrote this talk</h1>
 <p>Timing! I was asked to give a talk after writing a bunch of mock test code.</p>
+<p><img src="./commit-strip-tests.jpg" alt="image" /></p>
+<p><sup>image credit: http://www.commitstrip.com/en/2017/02/08/where-are-the-tests/</sup></p>
 </div>
-<div id="why-i-wrote-this-talk-1" class="slide section level1">
-<h1>Why I wrote this talk</h1>
+<div id="what-is-testing" class="slide section level1">
+<h1>What is testing?</h1>
+<p>Testing makes sure your code behaves as expected by <strong>running your code</strong> and observing the results</p>
+</div>
+<div id="how-would-you-test-this" class="slide section level1">
+<h1>How would you test this?</h1>
+<ul>
+<li>without actually deleting anything?</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co"># yourcode.py</span>
+<span class="kw">def</span> wipe_directory(path):
+  p <span class="op">=</span> Popen([<span class="st">&#39;rm&#39;</span>, <span class="st">&#39;-rf&#39;</span>, path], stdout<span class="op">=</span>PIPE, stderr<span class="op">=</span>PIPE)
+  <span class="cf">if</span> p.wait():
+    <span class="cf">raise</span> <span class="pp">Exception</span>(<span class="st">&#39;We had a fail&#39;</span>)</code></pre></div>
+</div>
+<div id="how-would-you-test-this-1" class="slide section level1">
+<h1>How would you test this?</h1>
+<ul>
+<li>without actually deleting anything?</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co"># yourcode.py</span>
+<span class="kw">def</span> delete_everything():
+    r <span class="op">=</span> requests.post(<span class="st">&#39;http://example.com/&#39;</span>,
+        data<span class="op">=</span>{<span class="st">&#39;delete&#39;</span>: <span class="st">&#39;everything&#39;</span>, <span class="st">&#39;autocommit&#39;</span>: <span class="st">&#39;true&#39;</span>})
+    <span class="cf">if</span> r.status_code <span class="op">==</span> <span class="dv">200</span>:
+        <span class="bu">print</span>(<span class="st">&#39;All things have been deleted&#39;</span>)
+        <span class="cf">return</span> <span class="va">True</span>
+    <span class="cf">else</span>:
+        <span class="bu">print</span>(<span class="st">&#39;Got an error: {}&#39;</span>.<span class="bu">format</span>(r.headers))
+        <span class="cf">return</span> <span class="va">False</span></code></pre></div>
+</div>
+<div id="how-would-you-test-this-2" class="slide section level1">
+<h1>How would you test this?</h1>
+<ul>
+<li>without writing to the database?</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">class</span> DBWriter(<span class="bu">object</span>):
+    counter <span class="op">=</span> <span class="dv">0</span>
+
+    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>):
+        <span class="va">self</span>.db <span class="op">=</span> DBLibrary()
+
+    <span class="kw">def</span> commit_to_db(<span class="va">self</span>, sql):
+        <span class="va">self</span>.counter <span class="op">+=</span> <span class="dv">1</span>
+        <span class="va">self</span>.db.commit(sql)
+
+    <span class="kw">def</span> save(<span class="va">self</span>, string):
+        sql <span class="op">=</span> <span class="st">&quot;INSERT INTO mytable SET mystring = &#39;{}&#39;&quot;</span>.<span class="bu">format</span>(string)
+        <span class="va">self</span>.commit_to_db(sql)
+
+    <span class="kw">def</span> drop(<span class="va">self</span>, string):
+        sql <span class="op">=</span> <span class="st">&quot;DELETE FROM mytable WHERE mystring = &#39;{}&#39;&quot;</span>.<span class="bu">format</span>(string)
+        <span class="va">self</span>.commit_to_db(sql)</code></pre></div>
+</div>
+<div id="how-would-you-test-this-3" class="slide section level1">
+<h1>How would you test this?</h1>
 <p>My script that I manage talks to</p>
 <ul>
 <li>kerberos</li>
 <li>git</li>
 <li>aurora</li>
-<li>package storage</li>
+<li>package repo</li>
 <li>jira</li>
 <li>email</li>
 <li>shared libraries</li>
 </ul>
 <p>How do I test my code without beating up these services?</p>
 </div>
-<div id="what-is-testing" class="slide section level1">
-<h1>What is testing?</h1>
-<p>Testing makes sure your code behaves as expected</p>
-</div>
 <div id="what-is-testing-1" class="slide section level1">
 <h1>What is testing?</h1>
 <ul>
-<li>Unit: distinct pieces of code (e.g., just this function)</li>
-<li>Integration: the collection of all your code, plus how it merges with shared libs &amp; 3rd party</li>
-<li>Acceptance: full-system, full-stack</li>
-</ul>
-</div>
-<div id="what-is-testing-2" class="slide section level1">
-<h1>What is testing?</h1>
-<ul>
-<li>Unit: Just this function</li>
-<li>Integration: When all the functions talk to each other</li>
+<li>Unit: Just this small part</li>
+<li>Integration: When all the parts talk to each other and included parts</li>
 <li>Acceptance: When the whole app talks to everything else</li>
 </ul>
 </div>
@@ -125,25 +169,9 @@ document.write('<a h'+'ref'+'="ma'+'ilto'+':'+e+'" clas'+'s="em' + 'ail">'+e+'<\
 <h1>What is mocking?</h1>
 <p><code>unittest.mock</code> is a library for testing in Python. It allows you to replace parts of your system under test with mock objects and make assertions about how they have been used.</p>
 <p>Source: <a href="https://docs.python.org/3/library/unittest.mock.html" class="uri">https://docs.python.org/3/library/unittest.mock.html</a></p>
-</div>
-<div id="what-do-i-mock" class="slide section level1">
-<h1>What do I mock?</h1>
-<ul>
-<li>Unit: Other modules/functions/etc to isolate one function/module/etc</li>
-<li>Integration: Just things that reach outside of your application (e.g., command-line)</li>
-<li>Acceptance: Only when you can't use a testing API</li>
-</ul>
 <p>Mocks are primarily used for unit testing. There may be some place in integration testing, highly unlikely in acceptance testing.</p>
 </div>
 <div id="why-should-i-mock" class="slide section level1">
-<h1>Why should I mock?</h1>
-<ul>
-<li>Protect things from outside of your code from getting impacted by test runs</li>
-<li>Partition tests into distinct &quot;units&quot;</li>
-<li>Don't bother testing third-party libraries</li>
-</ul>
-</div>
-<div id="why-should-i-mock-1" class="slide section level1">
 <h1>Why should I mock?</h1>
 <ul>
 <li>Unit test safely</li>
@@ -219,7 +247,7 @@ document.write('<a h'+'ref'+'="ma'+'ilto'+':'+e+'" clas'+'s="em' + 'ail">'+e+'<\
 </div>
 <div id="about-the-mock-library-1" class="slide section level1">
 <h1>About the mock library</h1>
-<p>A default mock object will accept any undeclared function</p>
+<p>Plasticity - a default mock object will accept any undeclared function</p>
 <div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="op">&gt;&gt;&gt;</span> mock <span class="op">=</span> Mock()
 <span class="op">&gt;&gt;&gt;</span> mock.this_is_never_assigned(<span class="st">&#39;hello&#39;</span>)
 <span class="op">&lt;</span>Mock name<span class="op">=</span><span class="st">&#39;mock.this_is_never_assigned()&#39;</span> <span class="bu">id</span><span class="op">=</span><span class="st">&#39;4422797328&#39;</span><span class="op">&gt;</span></code></pre></div>
@@ -473,7 +501,7 @@ mocked.myfunc.side_effect <span class="op">=</span> my_side_effect
 </div>
 <div id="another-example-4" class="slide section level1">
 <h1>Another example</h1>
-<p>How do I patch something used twice?</p>
+<p>How do I mock something used twice?</p>
 <div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co"># yourcode.py</span>
 <span class="im">from</span> some.library <span class="im">import</span> AnotherThing
 
@@ -548,7 +576,7 @@ mocked.myfunc.side_effect <span class="op">=</span> my_side_effect
 </div>
 <div id="when-to-use-a-mock-2" class="slide section level1">
 <h1>When to use a mock</h1>
-<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co"># yourcode.py </span>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co"># yourcode.py</span>
 <span class="kw">def</span> get_example():
     r <span class="op">=</span> requests.post(<span class="st">&#39;http://example.com/&#39;</span>,
         data<span class="op">=</span>{<span class="st">&#39;delete&#39;</span>: <span class="st">&#39;everything&#39;</span>, <span class="st">&#39;autocommit&#39;</span>: <span class="st">&#39;true&#39;</span>})

@@ -20,15 +20,81 @@ Why I wrote this talk
 
 Timing! I was asked to give a talk after writing a bunch of mock test code.
 
-Why I wrote this talk
-=====================
+.. image:: ./commit-strip-tests.jpg
+
+:sup:`image credit: http://www.commitstrip.com/en/2017/02/08/where-are-the-tests/`
+
+What is testing?
+================
+
+Testing makes sure your code behaves as expected by **running your code** and observing the results
+
+How would you test this?
+========================
+
+- without actually deleting anything?
+
+.. code-block:: python
+
+  # yourcode.py
+  def wipe_directory(path):
+    p = Popen(['rm', '-rf', path], stdout=PIPE, stderr=PIPE)
+    if p.wait():
+      raise Exception('We had a fail')
+
+
+How would you test this?
+========================
+
+- without actually deleting anything?
+
+.. code-block:: python
+
+    # yourcode.py
+    def delete_everything():
+        r = requests.post('http://example.com/',
+            data={'delete': 'everything', 'autocommit': 'true'})
+        if r.status_code == 200:
+            print('All things have been deleted')
+            return True
+        else:
+            print('Got an error: {}'.format(r.headers))
+            return False
+
+How would you test this?
+========================
+
+- without writing to the database?
+
+.. code-block:: python
+
+    class DBWriter(object):
+        counter = 0
+
+        def __init__(self):
+            self.db = DBLibrary()
+
+        def commit_to_db(self, sql):
+            self.counter += 1
+            self.db.commit(sql)
+
+        def save(self, string):
+            sql = "INSERT INTO mytable SET mystring = '{}'".format(string)
+            self.commit_to_db(sql)
+
+        def drop(self, string):
+            sql = "DELETE FROM mytable WHERE mystring = '{}'".format(string)
+            self.commit_to_db(sql)
+
+How would you test this?
+========================
 
 My script that I manage talks to
 
 - kerberos
 - git
 - aurora
-- package storage
+- package repo
 - jira
 - email
 - shared libraries
@@ -38,20 +104,8 @@ How do I test my code without beating up these services?
 What is testing?
 ================
 
-Testing makes sure your code behaves as expected
-
-What is testing?
-================
-
-- Unit: distinct pieces of code (e.g., just this function)
-- Integration: the collection of all your code, plus how it merges with shared libs & 3rd party
-- Acceptance: full-system, full-stack
-
-What is testing?
-================
-
-- Unit: Just this function
-- Integration: When all the functions talk to each other
+- Unit: Just this small part
+- Integration: When all the parts talk to each other and included parts
 - Acceptance: When the whole app talks to everything else
 
 What is mocking?
@@ -62,22 +116,8 @@ under test with mock objects and make assertions about how they have been used.
 
 Source: https://docs.python.org/3/library/unittest.mock.html
 
-What do I mock?
-===============
-
-- Unit: Other modules/functions/etc to isolate one function/module/etc
-- Integration: Just things that reach outside of your application (e.g., command-line)
-- Acceptance: Only when you can't use a testing API
-
 Mocks are primarily used for unit testing. There may be some place in integration testing, highly
 unlikely in acceptance testing.
-
-Why should I mock?
-==================
-
-- Protect things from outside of your code from getting impacted by test runs
-- Partition tests into distinct "units"
-- Don't bother testing third-party libraries
 
 Why should I mock?
 ==================
@@ -176,7 +216,7 @@ An example of using a mock
 About the mock library
 ======================
 
-A default mock object will accept any undeclared function
+Plasticity - a default mock object will accept any undeclared function
 
 .. code-block:: python
 
@@ -491,13 +531,13 @@ Another example
 Another example
 ===============
 
-How do I patch something used twice?
+How do I mock something used twice?
 
 .. code-block:: python
 
   # yourcode.py
   from some.library import AnotherThing
- 
+
   class MyClass(object):
       def __init__(self, this, that):
           self.this = AnotherThing(this)
@@ -590,7 +630,7 @@ When to use a mock
 
 .. code-block:: python
 
-    # yourcode.py 
+    # yourcode.py
     def get_example():
         r = requests.post('http://example.com/',
             data={'delete': 'everything', 'autocommit': 'true'})
