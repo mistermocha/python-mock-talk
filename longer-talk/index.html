@@ -1,0 +1,747 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+ "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <meta name="author" content="Brian Weber" />
+  <title>Unit Testing with Mock</title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code > span.dt { color: #902000; } /* DataType */
+code > span.dv { color: #40a070; } /* DecVal */
+code > span.bn { color: #40a070; } /* BaseN */
+code > span.fl { color: #40a070; } /* Float */
+code > span.ch { color: #4070a0; } /* Char */
+code > span.st { color: #4070a0; } /* String */
+code > span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code > span.ot { color: #007020; } /* Other */
+code > span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code > span.fu { color: #06287e; } /* Function */
+code > span.er { color: #ff0000; font-weight: bold; } /* Error */
+code > span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+code > span.cn { color: #880000; } /* Constant */
+code > span.sc { color: #4070a0; } /* SpecialChar */
+code > span.vs { color: #4070a0; } /* VerbatimString */
+code > span.ss { color: #bb6688; } /* SpecialString */
+code > span.im { } /* Import */
+code > span.va { color: #19177c; } /* Variable */
+code > span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code > span.op { color: #666666; } /* Operator */
+code > span.bu { } /* BuiltIn */
+code > span.ex { } /* Extension */
+code > span.pp { color: #bc7a00; } /* Preprocessor */
+code > span.at { color: #7d9029; } /* Attribute */
+code > span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code > span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code > span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+  </style>
+  <link rel="stylesheet" type="text/css" media="screen, projection, print"
+    href="http://www.w3.org/Talks/Tools/Slidy2/styles/slidy.css" />
+  <link rel="stylesheet" type="text/css" media="screen, projection, print"
+   href="myslidy.css" />
+  <script src="http://www.w3.org/Talks/Tools/Slidy2/scripts/slidy.js"
+    charset="utf-8" type="text/javascript"></script>
+</head>
+<body>
+<div class="slide titlepage">
+  <h1 class="title">Unit Testing with Mock</h1>
+  <p class="author">
+Brian Weber
+  </p>
+  <p class="date">PyBay Conference - August 12, 2017</p>
+</div>
+<div id="in-this-talk..." class="slide section level2">
+<h2>In this talk...</h2>
+<ul>
+<li>Motivations</li>
+<li>Overview of the <code>mock</code> library</li>
+<li>Examples to show when &amp; how to use</li>
+</ul>
+</div>
+<div id="why-i-gave-this-talk" class="slide section level2">
+<h2>Why I gave this talk</h2>
+<p>I had to write a script that talked to...</p>
+<ul>
+<li>command-line</li>
+<li>git</li>
+<li>fetch/upload packages</li>
+<li>ldap/kerberos</li>
+<li>email</li>
+<li><strong>staging production deploys</strong></li>
+</ul>
+<p>... How do I test this?</p>
+</div>
+<div id="this-talk-is-kinda-about-unit-testing" class="slide section level2">
+<h2>This talk is kinda about unit testing</h2>
+<ul>
+<li><strong>Unit</strong>: Just this small part</li>
+<li><strong>Integration</strong>: When all the parts talk to each other and included parts</li>
+<li><strong>Acceptance</strong>: When the whole app talks to everything else</li>
+</ul>
+<p>A unit test executes a small part (unit) of your code and confirms the desired outputs and effects.</p>
+<h3 id="tests-execute-your-code">Tests execute your code</h3>
+</div>
+<div id="this-talk-is-kinda-about-unit-testing-1" class="slide section level2">
+<h2>This talk is kinda about unit testing</h2>
+<p>Unit tests should be:</p>
+<ul>
+<li>Fast</li>
+<li>Cheap</li>
+<li>Safe</li>
+</ul>
+<p>... so that I can run them all the time</p>
+<h3 id="tests-execute-your-code-1">Tests execute your code</h3>
+</div>
+<div id="pop-quiz" class="slide section level2 bigger center">
+<h2>Pop quiz!</h2>
+<h3 id="how-would-you-test-this">How would you test this</h3>
+</div>
+<div id="code-runs-a-shell-command" class="slide section level2">
+<h2>Code runs a shell command?</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> wipe_directory(path):
+    p <span class="op">=</span> Popen(
+        <span class="co"># yes you&#39;re gonna delete everything</span>
+        [<span class="st">&#39;rm&#39;</span>, <span class="st">&#39;-rf&#39;</span>, path])
+    <span class="cf">if</span> p.wait():
+        <span class="cf">raise</span> <span class="pp">Exception</span>(<span class="st">&#39;We had a fail&#39;</span>)</code></pre></div>
+</div>
+<div id="code-calls-a-web-api" class="slide section level2">
+<h2>Code calls a web API?</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> delete_everything():
+    r <span class="op">=</span> requests.post(<span class="st">&#39;http://example.com/&#39;</span>,
+        <span class="co"># yes, this deletes things too, right?</span>
+        data<span class="op">=</span>{<span class="st">&#39;delete&#39;</span>: <span class="st">&#39;everything&#39;</span>, <span class="st">&#39;autocommit&#39;</span>: <span class="st">&#39;true&#39;</span>})
+
+    <span class="cf">if</span> r.status_code <span class="op">==</span> <span class="dv">200</span>:
+        <span class="bu">print</span>(<span class="st">&#39;All things have been deleted&#39;</span>)
+        <span class="cf">return</span> <span class="va">True</span>
+
+    <span class="cf">else</span>:
+        <span class="bu">print</span>(<span class="st">&#39;Got an error: </span><span class="sc">{}</span><span class="st">&#39;</span>.<span class="bu">format</span>(r.headers))
+        <span class="cf">return</span> <span class="va">False</span></code></pre></div>
+</div>
+<div id="sql-through-another-library" class="slide section level2">
+<h2>SQL through another library?</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">class</span> DBWriter(<span class="bu">object</span>):
+    counter <span class="op">=</span> <span class="dv">0</span>
+
+    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>):
+        <span class="va">self</span>.db <span class="op">=</span> DBLibrary()
+
+    <span class="kw">def</span> commit_to_db(<span class="va">self</span>, sql):
+        <span class="va">self</span>.counter <span class="op">+=</span> <span class="dv">1</span>
+        <span class="va">self</span>.db.commit(sql)
+
+    <span class="co"># Write something to the database</span>
+    <span class="kw">def</span> save(<span class="va">self</span>, string):
+        sql <span class="op">=</span> <span class="st">&quot;INSERT INTO mytable SET mystring = &#39;</span><span class="sc">{}</span><span class="st">&#39;&quot;</span>.<span class="bu">format</span>(string)
+        <span class="va">self</span>.commit_to_db(sql)
+
+    <span class="co"># And delete something too!</span>
+    <span class="kw">def</span> drop(<span class="va">self</span>, string):
+        sql <span class="op">=</span> <span class="st">&quot;DELETE FROM mytable WHERE mystring = &#39;</span><span class="sc">{}</span><span class="st">&#39;&quot;</span>.<span class="bu">format</span>(string)
+        <span class="va">self</span>.commit_to_db(sql)</code></pre></div>
+</div>
+<div id="mocks-to-the-rescue" class="slide section level2 bigger center">
+<h2>Mocks to the rescue!!</h2>
+</div>
+<div id="use-mocks-for-safer-unit-tests" class="slide section level2">
+<h2>Use mocks for safer unit tests</h2>
+<p><code>unittest.mock</code> is a library for testing in Python. It allows you to replace parts of your system under test with mock objects and make assertions about how they have been used.</p>
+<p><em>Source: https://docs.python.org/3/library/unittest.mock.html</em></p>
+<p>Available in the standard library as of python 3.3, also available on https://pypi.python.org/pypi/mock for older versions</p>
+</div>
+<div id="why-should-i-use-a-mock" class="slide section level2">
+<h2>Why should I use a mock?</h2>
+<ul>
+<li><strong>Unit test safely:</strong> stop the state-changing parts so you can actually run tests</li>
+<li><strong>Write better code:</strong> a lovely side-effect of writing thorough tests</li>
+<li><strong>Isolation:</strong> create walls between your code and &quot;not-your-code&quot; for safer tests</li>
+</ul>
+</div>
+<div id="how-do-i-use-a-mock" class="slide section level2 center bigger">
+<h2>How do I use a mock?</h2>
+</div>
+<div id="direct-replacement" class="slide section level2">
+<h2>Direct replacement</h2>
+<p>Just create instances and put them where you want them</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co"># Part of stdlib in python &gt;= 3.3</span>
+
+<span class="im">from</span> unittest.mock <span class="im">import</span> Mock
+<span class="im">from</span> mycode <span class="im">import</span> MyClass
+
+<span class="kw">def</span> test_myclass():
+    my_object <span class="op">=</span> MyClass()
+    my_object.sub_method <span class="op">=</span> Mock()
+    my_object.visible_method()
+    my_object.sub_method.assert_called_with(<span class="st">&quot;foo&quot;</span>)</code></pre></div>
+</div>
+<div id="subclassing-to-replace" class="slide section level2">
+<h2>Subclassing to replace</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">class</span> TestMyClass(MyClass):
+    sub_method <span class="op">=</span> mock.Mock(...)
+
+<span class="kw">def</span> test_myclass():
+    my_object <span class="op">=</span> TestMyClass()
+    my_object.visible_method()
+    my_object.sub_method.assert_called_with(<span class="st">&quot;foo&quot;</span>)</code></pre></div>
+</div>
+<div id="using-patch" class="slide section level2">
+<h2>Using patch</h2>
+<p>Use <code>patch</code> to install a mock somewhere not directly accessible</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> count_the_shells():
+    p <span class="op">=</span> Popen([<span class="st">&#39;ps&#39;</span>, <span class="st">&#39;-a&#39;</span>], stdout<span class="op">=</span>PIPE)
+    <span class="cf">if</span> p.wait():
+        <span class="cf">raise</span> <span class="pp">Exception</span>(<span class="st">&#39;We had a fail&#39;</span>)
+    count <span class="op">=</span> <span class="dv">0</span>
+    <span class="cf">for</span> proc <span class="kw">in</span> p.stdout.readlines():
+        <span class="cf">if</span> <span class="st">&quot;-bash&quot;</span> <span class="kw">in</span> proc:
+            count <span class="op">+=</span> <span class="dv">1</span>
+    <span class="cf">return</span> count
+
+<span class="co"># patch in the namespace</span>
+<span class="at">@mock.patch</span>(<span class="st">&#39;subprocess.Popen&#39;</span>)
+<span class="kw">def</span> test_count_the_shells(mocked_popen):
+    <span class="co"># compare against test output in a file</span>
+    mocked_popen.return_value.stdout <span class="op">=</span> <span class="bu">open</span>(<span class="st">&#39;testps.out&#39;</span>)
+    mocked_popen.return_value.wait.return_value <span class="op">=</span> <span class="va">False</span>
+    <span class="cf">assert</span> count_the_shells() <span class="op">==</span> <span class="dv">4</span></code></pre></div>
+</div>
+<div id="using-patch-1" class="slide section level2">
+<h2>Using patch</h2>
+<p>Use <code>patch</code> to install a mock somewhere not directly accessible</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> count_the_shells():
+    p <span class="op">=</span> Popen([<span class="st">&#39;ps&#39;</span>, <span class="st">&#39;-a&#39;</span>], stdout<span class="op">=</span>PIPE, stderr<span class="op">=</span>PIPE)
+    <span class="cf">if</span> p.wait():
+        <span class="cf">raise</span> <span class="pp">Exception</span>(<span class="st">&#39;We had a fail&#39;</span>)
+    count <span class="op">=</span> <span class="dv">0</span>
+    <span class="cf">for</span> proc <span class="kw">in</span> p.stdout.readlines():
+        <span class="cf">if</span> <span class="st">&quot;-bash&quot;</span> <span class="kw">in</span> proc:
+            count <span class="op">+=</span> <span class="dv">1</span>
+    <span class="cf">return</span> count
+
+<span class="co"># patch in the namespace</span>
+<span class="kw">def</span> test_count_the_shells(mocked_popen):
+    <span class="cf">with</span> mock.patch(<span class="st">&#39;subprocess.Popen&#39;</span>) <span class="im">as</span> mocked_popen:
+        <span class="co"># compare against test output in a file</span>
+        mocked_popen.return_value.stdout <span class="op">=</span> <span class="bu">open</span>(<span class="st">&#39;testps.out&#39;</span>)
+        mocked_popen.return_value.wait.return_value <span class="op">=</span> <span class="va">False</span>
+        <span class="cf">assert</span> count_the_shells() <span class="op">==</span> <span class="dv">4</span></code></pre></div>
+</div>
+<div id="which-pattern-of-replacement-is-right" class="slide section level2">
+<h2>Which pattern of replacement is right?</h2>
+<ul>
+<li>Which one matches your code patterns?</li>
+<li>Which one matches your team's patterns?</li>
+<li>Which one helps you write better, bug-free code?</li>
+</ul>
+<p><strong>It's up to you!</strong></p>
+</div>
+<div id="mocks-are-plastic" class="slide section level2">
+<h2>Mocks are plastic</h2>
+<p>Calls to unassigned attributes just return a shapeless mock</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="op">&gt;&gt;&gt;</span> mock <span class="op">=</span> Mock()
+<span class="op">&gt;&gt;&gt;</span> mock.this_is_never_assigned(<span class="st">&#39;hello&#39;</span>)
+<span class="op">&lt;</span>Mock name<span class="op">=</span><span class="st">&#39;mock.this_is_never_assigned()&#39;</span> <span class="bu">id</span><span class="op">=</span><span class="st">&#39;4422797328&#39;</span><span class="op">&gt;</span></code></pre></div>
+<p>You must teach a mock how to behave.</p>
+<p><em>Definition of plastic (https://www.merriam-webster.com/dictionary/plastic)</em></p>
+<ol style="list-style-type: decimal">
+<li><em>formative, creative plastic forces in nature</em></li>
+<li><em>capable of being molded or modeled; capable of adapting to varying conditions</em></li>
+</ol>
+</div>
+<div id="return-value" class="slide section level2">
+<h2>Return value</h2>
+<p>Declaring a <code>return_value</code> can assign an expected value</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="op">&gt;&gt;&gt;</span> mock.my_attr.return_value <span class="op">=</span> <span class="st">&quot;This space for rent&quot;</span>
+<span class="op">&gt;&gt;&gt;</span> mock.my_attr()
+<span class="co">&#39;This space for rent&#39;</span>
+<span class="op">&gt;&gt;&gt;</span></code></pre></div>
+<p>Respond to that desired return code instead of actually calling an endpoint for one!</p>
+</div>
+<div id="side-effect" class="slide section level2">
+<h2>Side effect</h2>
+<p>Use <code>side_effect</code> to do things that don't explicity have a static return value</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="op">&gt;&gt;&gt;</span> <span class="kw">def</span> add_to(x):
+...     mymock.counter <span class="op">+=</span> x
+...
+<span class="op">&gt;&gt;&gt;</span> mymock.add_to.side_effect <span class="op">=</span> add_to
+<span class="op">&gt;&gt;&gt;</span> mymock.add_to(<span class="dv">5</span>)
+<span class="op">&gt;&gt;&gt;</span> mymock.add_to(<span class="dv">3</span>)
+<span class="op">&gt;&gt;&gt;</span> mymock.counter
+<span class="dv">8</span></code></pre></div>
+</div>
+<div id="magicmock" class="slide section level2">
+<h2>MagicMock</h2>
+<p>Contains default implementations of magic (dunder) methods</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="op">&gt;&gt;&gt;</span> mock <span class="op">=</span> mock.Mock()
+<span class="op">&gt;&gt;&gt;</span> <span class="bu">int</span>(mock)
+Traceback (most recent call last):
+  File <span class="st">&quot;&lt;stdin&gt;&quot;</span>, line <span class="dv">1</span>, <span class="kw">in</span> <span class="op">&lt;</span>module<span class="op">&gt;</span>
+<span class="pp">TypeError</span>: <span class="bu">int</span>() argument must be a string <span class="kw">or</span> a number, <span class="kw">not</span> <span class="st">&#39;Mock&#39;</span>
+
+<span class="op">&gt;&gt;&gt;</span> magic <span class="op">=</span> mock.MagicMock()
+<span class="op">&gt;&gt;&gt;</span> <span class="bu">int</span>(magic)
+<span class="dv">1</span></code></pre></div>
+</div>
+<div id="spec-and-autospec" class="slide section level2 bigger center">
+<h2>Spec and Autospec</h2>
+<p>Really pretend to be another thing!</p>
+</div>
+<div id="using-spec" class="slide section level2">
+<h2>Using <code>spec</code></h2>
+<p>Instantiating with <code>spec</code>:</p>
+<ul>
+<li>respects <code>type</code> checks.</li>
+<li>responds only to attributes defined in the <code>spec</code> object</li>
+</ul>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="op">&gt;&gt;&gt;</span> <span class="im">from</span> collections <span class="im">import</span> OrderedDict
+<span class="op">&gt;&gt;&gt;</span> mymock <span class="op">=</span> Mock(spec<span class="op">=</span>OrderedDict)
+<span class="op">&gt;&gt;&gt;</span> <span class="bu">isinstance</span>(mymock, OrderedDict)
+<span class="va">True</span>
+<span class="op">&gt;&gt;&gt;</span> <span class="bu">type</span>(mymock)
+<span class="op">&lt;</span><span class="kw">class</span> <span class="st">&#39;mock.Mock&#39;</span><span class="op">&gt;</span></code></pre></div>
+<p>The <code>spec</code> argument must be a class or an object/instance.</p>
+</div>
+<div id="using-spec-1" class="slide section level2">
+<h2>Using <code>spec</code></h2>
+<p>Only attributes defined in the spec are respected.</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="op">&gt;&gt;&gt;</span> mymock <span class="op">=</span> Mock(spec<span class="op">=</span>OrderedDict)
+<span class="op">&gt;&gt;&gt;</span> a <span class="op">=</span> mymock.this_does_not_exist()
+Traceback (most recent call last):
+  File <span class="st">&quot;&lt;stdin&gt;&quot;</span>, line <span class="dv">1</span>, <span class="kw">in</span> <span class="op">&lt;</span>module<span class="op">&gt;</span>
+  File <span class="st">&quot;/opt/twitter/lib/python2.7/site-packages/mock.py&quot;</span>, line <span class="dv">658</span>, <span class="kw">in</span> <span class="fu">__getattr__</span>
+    <span class="cf">raise</span> <span class="pp">AttributeError</span>(<span class="st">&quot;Mock object has no attribute </span><span class="sc">%r</span><span class="st">&quot;</span> <span class="op">%</span> name)
+<span class="pp">AttributeError</span>: Mock <span class="bu">object</span> has no attribute <span class="st">&#39;this_does_not_exist&#39;</span>
+
+<span class="op">&gt;&gt;&gt;</span> mymock.this_does_not_exist <span class="op">=</span> <span class="st">&quot;this exists now&quot;</span>
+<span class="op">&gt;&gt;&gt;</span> <span class="bu">print</span>(mymock.this_does_not_exist)
+this exists now</code></pre></div>
+<p>The mock object can still be altered though. You may want this.</p>
+</div>
+<div id="spec_set-is-safer" class="slide section level2">
+<h2><code>spec_set</code> is safer</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="op">&gt;&gt;&gt;</span> mymock <span class="op">=</span> Mock(spec_set<span class="op">=</span>OrderedDict)
+<span class="op">&gt;&gt;&gt;</span> mymock.this_does_not_exist <span class="op">=</span> <span class="st">&quot;o no you didn&#39;t&quot;</span>
+Traceback (most recent call last):
+  File <span class="st">&quot;&lt;stdin&gt;&quot;</span>, line <span class="dv">1</span>, <span class="kw">in</span> <span class="op">&lt;</span>module<span class="op">&gt;</span>
+  File <span class="st">&quot;/opt/twitter/lib/python2.7/site-packages/mock.py&quot;</span>, line <span class="dv">761</span>, <span class="kw">in</span> <span class="fu">__setattr__</span>
+    <span class="cf">raise</span> <span class="pp">AttributeError</span>(<span class="st">&quot;Mock object has no attribute &#39;</span><span class="sc">%s</span><span class="st">&#39;&quot;</span> <span class="op">%</span> name)
+<span class="pp">AttributeError</span>: Mock <span class="bu">object</span> has no attribute <span class="st">&#39;this_does_not_exist&#39;</span></code></pre></div>
+</div>
+<div id="autospec-matches-signatures" class="slide section level2">
+<h2><code>autospec</code> matches signatures</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="op">&gt;&gt;&gt;</span> <span class="kw">def</span> myfunc(foo, bar):
+...     <span class="cf">pass</span>
+...
+<span class="op">&gt;&gt;&gt;</span> mymock <span class="op">=</span> create_autospec(myfunc)
+<span class="op">&gt;&gt;&gt;</span> mymock(<span class="st">&quot;one&quot;</span>, <span class="st">&quot;two&quot;</span>)
+<span class="op">&lt;</span>MagicMock name<span class="op">=</span><span class="st">&#39;mock()&#39;</span> <span class="bu">id</span><span class="op">=</span><span class="st">&#39;4493382480&#39;</span><span class="op">&gt;</span>
+<span class="op">&gt;&gt;&gt;</span> mymock(<span class="st">&quot;just one&quot;</span>)
+Traceback (most recent call last):
+  File <span class="st">&quot;&lt;stdin&gt;&quot;</span>, line <span class="dv">1</span>, <span class="kw">in</span> <span class="op">&lt;</span>module<span class="op">&gt;</span>
+  File <span class="st">&quot;&lt;string&gt;&quot;</span>, line <span class="dv">2</span>, <span class="kw">in</span> myfunc
+<span class="pp">TypeError</span>: <span class="op">&lt;</span><span class="kw">lambda</span><span class="op">&gt;</span>() takes exactly <span class="dv">2</span> arguments (<span class="dv">1</span> given)
+<span class="op">&gt;&gt;&gt;</span></code></pre></div>
+<p>Note that <code>autospec</code> returns a <code>MagicMock</code> by default as well! Use this when possible!</p>
+</div>
+<div id="avoid-typos-in-test-code" class="slide section level2">
+<h2>Avoid typos in test code!</h2>
+<p>Using <code>spec</code> and its variants prevent typos in assertion calls</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="op">&gt;&gt;&gt;</span> mock <span class="op">=</span> Mock(name<span class="op">=</span><span class="st">&#39;Thing&#39;</span>, return_value<span class="op">=</span><span class="va">None</span>)
+<span class="op">&gt;&gt;&gt;</span> mock(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>)
+<span class="op">&gt;&gt;&gt;</span> mock.assret_called_once_with(<span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">6</span>)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="op">&gt;&gt;&gt;</span> <span class="im">from</span> urllib <span class="im">import</span> request
+<span class="op">&gt;&gt;&gt;</span> mock <span class="op">=</span> Mock(spec<span class="op">=</span>request.Request)
+<span class="op">&gt;&gt;&gt;</span> mock.assret_called_with
+Traceback (most recent call last):
+ ...
+<span class="pp">AttributeError</span>: Mock <span class="bu">object</span> has no attribute <span class="st">&#39;assret_called_with&#39;</span></code></pre></div>
+</div>
+<div id="dont-over-model-your-code" class="slide section level2">
+<h2>Don't over-model your code!</h2>
+<ul>
+<li>Shared libraries could change - spec/autospec help with this</li>
+<li>It's easy to re-write large sections of code in mocks</li>
+<li>Remember the edges of your code - that's where mocks live</li>
+</ul>
+</div>
+<div id="introspection" class="slide section level2">
+<h2>Introspection</h2>
+<ul>
+<li><code>called</code> - boolean, true if ever called</li>
+<li><code>call_count</code> - integer, number of times called</li>
+<li><code>call_args</code> - mock.call() object with args from last call</li>
+<li><code>call_args_list</code> - list of mock.call() with all args ever used</li>
+<li><code>method_calls</code> - track calls to methods and attributes, and their descendents</li>
+<li><code>mock_calls</code> - list of all calls to the mock object</li>
+</ul>
+</div>
+<div id="introspection-1" class="slide section level2">
+<h2>Introspection</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="op">&gt;&gt;&gt;</span> mymock <span class="op">=</span> Mock()
+<span class="op">&gt;&gt;&gt;</span> mymock.foo()
+<span class="op">&lt;</span>Mock name<span class="op">=</span><span class="st">&#39;mock.foo()&#39;</span> <span class="bu">id</span><span class="op">=</span><span class="st">&#39;4465705552&#39;</span><span class="op">&gt;</span>
+<span class="op">&gt;&gt;&gt;</span> mymock.foo(<span class="dv">1</span>)
+<span class="op">&lt;</span>Mock name<span class="op">=</span><span class="st">&#39;mock.foo()&#39;</span> <span class="bu">id</span><span class="op">=</span><span class="st">&#39;4465705552&#39;</span><span class="op">&gt;</span>
+<span class="op">&gt;&gt;&gt;</span> mymock.foo(<span class="st">&quot;bar&quot;</span>)
+<span class="op">&lt;</span>Mock name<span class="op">=</span><span class="st">&#39;mock.foo()&#39;</span> <span class="bu">id</span><span class="op">=</span><span class="st">&#39;4465705552&#39;</span><span class="op">&gt;</span>
+<span class="op">&gt;&gt;&gt;</span> mymock.foo.call_count
+<span class="dv">3</span>
+<span class="op">&gt;&gt;&gt;</span> mymock.foo.call_args
+call(<span class="st">&#39;bar&#39;</span>)
+<span class="op">&gt;&gt;&gt;</span> mymock.foo.call_args_list
+[call(), call(<span class="dv">1</span>), call(<span class="st">&#39;bar&#39;</span>)]
+<span class="op">&gt;&gt;&gt;</span> mymock.method_calls
+[call.foo(), call.foo(<span class="dv">1</span>), call.foo(<span class="st">&#39;bar&#39;</span>)]
+<span class="op">&gt;&gt;&gt;</span></code></pre></div>
+</div>
+<div id="built-in-tests" class="slide section level2">
+<h2>Built-in tests</h2>
+<ul>
+<li><code>assert_called_once</code> - if called exactly once</li>
+<li><code>assert_called_with</code> - specific args used in the last call</li>
+<li><code>assert_called_once_with</code> - specific args are used exactly once</li>
+<li><code>assert_any_call</code> - specific args used in any call ever</li>
+<li><code>assert_has_calls</code> - like <code>any_call</code> but with multiple calls</li>
+<li><code>assert_not_called</code> - has never been called</li>
+</ul>
+</div>
+<div id="built-in-tests-1" class="slide section level2">
+<h2>Built-in tests</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="op">&gt;&gt;&gt;</span> mock <span class="op">=</span> Mock()
+<span class="op">&gt;&gt;&gt;</span> mock.bar(<span class="st">&quot;foo&quot;</span>)
+<span class="op">&lt;</span>Mock name<span class="op">=</span><span class="st">&#39;mock.bar()&#39;</span> <span class="bu">id</span><span class="op">=</span><span class="st">&#39;4382462544&#39;</span><span class="op">&gt;</span>
+<span class="op">&gt;&gt;&gt;</span> mock.bar.assert_called_with(<span class="st">&quot;foo&quot;</span>)
+
+
+<span class="op">&gt;&gt;&gt;</span> mock.bar.assert_called_with(<span class="st">&quot;baz&quot;</span>)
+Traceback (most recent call last):
+  File <span class="st">&quot;&lt;stdin&gt;&quot;</span>, line <span class="dv">1</span>, <span class="kw">in</span> <span class="op">&lt;</span>module<span class="op">&gt;</span>
+  File <span class="st">&quot;/opt/twitter/lib/python2.7/site-packages/mock.py&quot;</span>, line <span class="dv">835</span>, <span class="kw">in</span> assert_called_with
+    <span class="cf">raise</span> <span class="pp">AssertionError</span>(msg)
+<span class="pp">AssertionError</span>: Expected call: bar(<span class="st">&#39;baz&#39;</span>)
+Actual call: bar(<span class="st">&#39;foo&#39;</span>)</code></pre></div>
+</div>
+<div id="a-few-examples" class="slide section level2">
+<h2>A few examples</h2>
+</div>
+<div id="calling-an-api" class="slide section level2">
+<h2>Calling an API</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> get_example():
+    r <span class="op">=</span> requests.get(<span class="st">&#39;http://example.com/&#39;</span>)
+    <span class="cf">return</span> r.status_code <span class="op">==</span> <span class="dv">200</span></code></pre></div>
+<p>How do we...</p>
+<ul>
+<li>Block the outbound call</li>
+<li>Track behavior of the <code>requests</code> object</li>
+<li>Model the <code>status_code</code> attribute</li>
+</ul>
+</div>
+<div id="calling-an-api-1" class="slide section level2">
+<h2>Calling an API</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> get_example():
+    r <span class="op">=</span> requests.get(<span class="st">&#39;http://example.com/&#39;</span>)
+    <span class="cf">return</span> r.status_code <span class="op">==</span> <span class="dv">200</span></code></pre></div>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> test_get_example_passing():
+  mocked_req_obj <span class="op">=</span> mock.Mock()
+  mocked_req_obj.status_code <span class="op">=</span> <span class="dv">200</span>
+
+  <span class="cf">with</span> mock.patch(<span class="st">&#39;requests.get&#39;</span>, autospec<span class="op">=</span><span class="va">True</span>) <span class="im">as</span> mocked_get:
+    mocked_get.return_value <span class="op">=</span> mocked_req_obj
+    <span class="cf">assert</span>(get_example())
+
+    mocked_get.assert_called()
+    mocked_get.assert_called_with(<span class="st">&#39;http://example.com/&#39;</span>)</code></pre></div>
+</div>
+<div id="calling-an-api-2" class="slide section level2">
+<h2>Calling an API</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> get_example():
+    r <span class="op">=</span> requests.get(<span class="st">&#39;http://example.com/&#39;</span>)
+    <span class="cf">return</span> r.status_code <span class="op">==</span> <span class="dv">200</span></code></pre></div>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> test_get_example_failing():
+  mocked_req_obj <span class="op">=</span> mock.Mock()
+  mocked_req_obj.status_code <span class="op">=</span> <span class="dv">400</span>
+
+  <span class="cf">with</span> mock.patch(<span class="st">&#39;requests.get&#39;</span>, autospec<span class="op">=</span><span class="va">True</span>) <span class="im">as</span> mocked_get:
+    mocked_get.return_value <span class="op">=</span> mocked_req_obj
+    <span class="cf">assert</span>(<span class="kw">not</span> get_example())
+
+    mocked_get.assert_called()
+    mocked_get.assert_called_with(<span class="st">&#39;http://example.com/&#39;</span>)</code></pre></div>
+</div>
+<div id="calling-an-api---improved" class="slide section level2">
+<h2>Calling an API - improved!</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> get_example(session<span class="op">=</span><span class="va">None</span>):
+    <span class="cf">if</span> <span class="kw">not</span> session:
+        session <span class="op">=</span> requests.Session
+    r <span class="op">=</span> session.get(<span class="st">&#39;http://example.com/&#39;</span>)
+    <span class="cf">return</span> r.status_code <span class="op">==</span> <span class="dv">200</span></code></pre></div>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> test_get_example_failing():
+  mocked_get <span class="op">=</span> mock.Mock(<span class="st">&#39;requests.Session&#39;</span>, autospec<span class="op">=</span><span class="va">True</span>)
+  mocked_get.return_value.status_code <span class="op">=</span> <span class="dv">200</span>
+
+  <span class="cf">assert</span>(get_example())
+
+  mocked_get.assert_called()
+  mocked_get.assert_called_with(<span class="st">&#39;http://example.com/&#39;</span>)</code></pre></div>
+</div>
+<div id="a-really-simple-class" class="slide section level2">
+<h2>A really simple class</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">class</span> AddStore(<span class="bu">object</span>):
+    stored_number <span class="op">=</span> <span class="dv">0</span>
+
+    <span class="kw">def</span> add_to(x):
+        <span class="va">self</span>.stored_number <span class="op">+=</span> x
+
+    <span class="kw">def</span> show():
+        <span class="cf">return</span> <span class="va">self</span>.stored_number
+
+    <span class="kw">def</span> <span class="fu">__repr__</span>():
+        <span class="cf">return</span> <span class="st">&quot;AddStore(</span><span class="sc">{}</span><span class="st">&quot;</span>.<span class="bu">format</span>(<span class="va">self</span>.stored_number)</code></pre></div>
+<p>What edges are there here?</p>
+</div>
+<div id="a-really-simple-class-1" class="slide section level2">
+<h2>A really simple class</h2>
+<p><em>NONE</em></p>
+<p>Nothing in that class talks to anything external, so no need to mock anything.</p>
+<p>Only mock when you absolutely must.</p>
+</div>
+<div id="database-library" class="slide section level2">
+<h2>Database library</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">class</span> DBWriter(<span class="bu">object</span>):
+    counter <span class="op">=</span> <span class="dv">0</span>
+
+    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>):
+        <span class="va">self</span>.db <span class="op">=</span> DBLibrary()
+
+    <span class="kw">def</span> _commit_to_db(<span class="va">self</span>, sql):
+        <span class="va">self</span>.counter <span class="op">+=</span> <span class="dv">1</span>
+        <span class="va">self</span>.db.commit(sql)
+
+    <span class="kw">def</span> save(<span class="va">self</span>, string):
+        sql <span class="op">=</span> <span class="st">&quot;INSERT INTO mytable SET mystring = &#39;</span><span class="sc">{}</span><span class="st">&#39;&quot;</span>.<span class="bu">format</span>(string)
+        <span class="va">self</span>.commit_to_db(sql)
+
+    <span class="kw">def</span> drop(<span class="va">self</span>, string):
+        sql <span class="op">=</span> <span class="st">&quot;DELETE FROM mytable WHERE mystring = &#39;</span><span class="sc">{}</span><span class="st">&#39;&quot;</span>.<span class="bu">format</span>(string)
+        <span class="va">self</span>.commit_to_db(sql)</code></pre></div>
+</div>
+<div id="two-approaches" class="slide section level2">
+<h2>Two approaches</h2>
+</div>
+<div id="patch-locally-defined-function" class="slide section level2">
+<h2>Patch locally defined function</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="co"># mock_commit == DBWriter._commit_to_db</span>
+<span class="at">@mock.patch</span>(<span class="st">&#39;dbwriter.DBWriter._commit_to_db&#39;</span>, autospec<span class="op">=</span><span class="va">True</span>)
+<span class="kw">def</span> test_save(mock_commit):
+    <span class="co"># reimplement</span>
+    <span class="kw">def</span> fake_commit(<span class="va">self</span>, sql):
+        <span class="va">self</span>.counter <span class="op">+=</span> <span class="dv">1</span>
+
+    <span class="co"># assign side_effect to the function</span>
+    mock_commit.side_effect <span class="op">=</span> fake_commit
+
+    <span class="co"># run the code</span>
+    writer <span class="op">=</span> DBWriter()
+    writer.save(<span class="st">&quot;Hello World&quot;</span>)
+
+    <span class="co"># introspection</span>
+    mock_commit.assert_called_with(writer,
+        <span class="st">&quot;INSERT INTO mytable SET mystring = &#39;Hello World&#39;&quot;</span>)
+    assertEquals(writer.counter, <span class="dv">1</span>)</code></pre></div>
+</div>
+<div id="patch-locally-defined-function-1" class="slide section level2">
+<h2>Patch locally defined function</h2>
+<p>Pros:</p>
+<ul>
+<li>Insulates the DB</li>
+<li>Checks internal behavior</li>
+</ul>
+<p>Cons:</p>
+<ul>
+<li>We're rewriting our code</li>
+<li>No inspection of the use of <code>DBWriter</code> instance</li>
+</ul>
+</div>
+<div id="patch-external-library" class="slide section level2">
+<h2>Patch external library</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="at">@mock.patch</span>(<span class="st">&#39;dbwriter.DBLibrary&#39;</span>, autospec<span class="op">=</span><span class="va">True</span>)
+<span class="kw">def</span> test_save(mock_dblib):
+    writer <span class="op">=</span> DBWriter()
+    writer.save(<span class="st">&quot;Hello World&quot;</span>)
+    mock_dblib.return_value.commit.assert_called_with(writer,
+        <span class="st">&quot;INSERT INTO mytable SET mystring = &#39;Hello World&#39;&quot;</span>)</code></pre></div>
+</div>
+<div id="patch-external-library-1" class="slide section level2">
+<h2>Patch external library</h2>
+<p>Pros:</p>
+<ul>
+<li>Insulates the DB</li>
+<li>Less lines of code</li>
+<li>Introspection into external library use</li>
+<li>Full code exercise</li>
+</ul>
+<p>Cons:</p>
+<ul>
+<li>No introspection of calls to <code>self</code>-based functions</li>
+</ul>
+</div>
+<div id="which-one-should-we-use" class="slide section level2 bigger center">
+<h2>Which one should we use?</h2>
+</div>
+<div id="both" class="slide section level2">
+<h2>BOTH!</h2>
+<p>Unit tests are cheap to run! When in doubt, write both tests, right?</p>
+</div>
+<div id="a-new-challenger-appears" class="slide section level2">
+<h2>A new challenger appears!</h2>
+<p>Subclass and patch</p>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">class</span> TestDBWriter(DBWriter):
+    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>):
+        <span class="va">self</span>.db <span class="op">=</span> mock.Mock(<span class="st">&#39;dblibrary.DBLibrary&#39;</span>, autospec<span class="op">=</span><span class="va">True</span>)
+
+<span class="kw">def</span> test_save(mock_dblib):
+    writer <span class="op">=</span> DBWriter()
+    writer.save(<span class="st">&quot;Hello World&quot;</span>)
+    mock_dblib.return_value.commit.assert_called_with(writer,
+        <span class="st">&quot;INSERT INTO mytable SET mystring = &#39;Hello World&#39;&quot;</span>)</code></pre></div>
+</div>
+<div id="repeat-instantiation" class="slide section level2">
+<h2>Repeat instantiation</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="im">from</span> some.library <span class="im">import</span> AnotherThing
+
+<span class="kw">class</span> MyClass(<span class="bu">object</span>):
+    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, this, that):
+        <span class="va">self</span>.this <span class="op">=</span> AnotherThing(this)
+        <span class="va">self</span>.that <span class="op">=</span> AnotherThing(that)
+
+    <span class="kw">def</span> do_this(<span class="va">self</span>):
+        <span class="va">self</span>.this.do()
+
+    <span class="kw">def</span> do_that(<span class="va">self</span>):
+        <span class="va">self</span>.that.do()
+
+    <span class="kw">def</span> do_more(<span class="va">self</span>):
+        got_it <span class="op">=</span> <span class="va">self</span>.this.get_it()
+        that_too <span class="op">=</span> <span class="va">self</span>.that.do_it(got_it)
+        <span class="cf">return</span> that_too</code></pre></div>
+</div>
+<div id="two-approaches-1" class="slide section level2">
+<h2>Two approaches</h2>
+</div>
+<div id="patch-this-and-that-directly" class="slide section level2">
+<h2>Patch <code>this</code> and <code>that</code> directly</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> test_my_class():
+    my_obj <span class="op">=</span> MyClass(<span class="st">&quot;fake this&quot;</span>, <span class="st">&quot;fake that&quot;</span>)
+    my_obj.this <span class="op">=</span> Mock(spec_set<span class="op">=</span><span class="st">&#39;some.library.AnotherThing&#39;</span>)
+    my_obj.that <span class="op">=</span> Mock(spec_set<span class="op">=</span><span class="st">&#39;some.library.AnotherThing&#39;</span>)
+
+    my_obj.do_this()
+    my_obj.this.do.assert_called()
+    my_obj.do_that()
+    my_obj.that.do.assert_called()</code></pre></div>
+</div>
+<div id="patch-this-and-that-directly-1" class="slide section level2">
+<h2>Patch <code>this</code> and <code>that</code> directly</h2>
+<p>Pros:</p>
+<ul>
+<li>Assurances that <code>this</code> and <code>that</code> are unique</li>
+</ul>
+<p>Cons:</p>
+<ul>
+<li><code>AnotherThing</code> is instantiated twice, and then replaced. Wasteful and <em>potentially unsafe</em>.</li>
+</ul>
+</div>
+<div id="mock-factory" class="slide section level2">
+<h2>Mock &quot;factory&quot;</h2>
+<div class="sourceCode"><pre class="sourceCode python"><code class="sourceCode python"><span class="at">@patch</span>(<span class="st">&#39;yourcode.AnotherThing&#39;</span>, autospec<span class="op">=</span><span class="va">True</span>)
+<span class="kw">def</span> test_my_class(mock_thing):
+    <span class="kw">def</span> fake_init(<span class="op">*</span>args):
+        <span class="cf">return</span> Mock(<span class="op">*</span>args, spec_set<span class="op">=</span><span class="st">&#39;some.library.AnotherThing&#39;</span>)
+    mock_thing.side_effect <span class="op">=</span> fake_init
+
+    my_obj <span class="op">=</span> MyClass(<span class="st">&quot;fake this&quot;</span>, <span class="st">&quot;fake that&quot;</span>)
+    my_obj.this.called_with(<span class="st">&quot;fake this&quot;</span>)
+    my_obj.that.called_with(<span class="st">&quot;fake that&quot;</span>)</code></pre></div>
+</div>
+<div id="mock-factory-1" class="slide section level2">
+<h2>Mock &quot;Factory&quot;</h2>
+<p>In this case, it's better because we can implement logic in the <code>side_effect</code> to ensure each instance is unique.</p>
+</div>
+<div id="to-mock-or-not-to-mock" class="slide section level2 bigger center">
+<h2>To Mock or Not To Mock?</h2>
+</div>
+<div id="you-should-mock" class="slide section level2">
+<h2>You should mock:</h2>
+<ul>
+<li>Calls to a service's API endpoint</li>
+<li>Stateful databases</li>
+<li>Command-line execution</li>
+<li>Anytime your app talks to anything that is not your app</li>
+<li>Just at the edges and corners</li>
+</ul>
+</div>
+<div id="you-should-not-mock" class="slide section level2">
+<h2>You should not mock:</h2>
+<ul>
+<li>... more than you need, use sparingly!</li>
+<li>The filesystem: too many edges</li>
+<li>Acceptance &amp; integration tests: defeats the purpose</li>
+</ul>
+</div>
+<div id="how-this-helped-me" class="slide section level2">
+<h2>How this helped me:</h2>
+<ul>
+<li>I can make changes safely</li>
+<li>Others can contribute safely</li>
+<li>Continuous integration</li>
+</ul>
+</div>
+<div id="everything-i-learned-is-all-wrong" class="slide section level2">
+<h2>Everything I learned is all wrong</h2>
+<ul>
+<li>Patching is wrong!</li>
+<li>Instantiating and replacing is wrong!</li>
+<li>Your code that you're testing is wrong!</li>
+</ul>
+</div>
+<div id="everything-i-learned-is-all-wrong-1" class="slide section level2">
+<h2>Everything I learned is all wrong</h2>
+<ul>
+<li>Patching is <del>wrong!</del> <em>necessary when it's necessary</em></li>
+<li>Instantiating and replacing is <del>wrong!</del> <em>just one technique</em></li>
+<li>Your code that you're testing <del>is wrong!</del> <em>can be improved while you test</em></li>
+</ul>
+</div>
+<div id="in-closing" class="slide section level2">
+<h2>In closing</h2>
+<p>If you're writing tests, you're doing something right!</p>
+<p>For more info:</p>
+<ul>
+<li>https://docs.python.org/3/library/unittest.mock.html</li>
+<li>https://dev.to/mistermocha</li>
+</ul>
+</div>
+<div id="thank-you" class="slide section level2">
+<h2>Thank you!</h2>
+<ul>
+<li>Brian Weber</li>
+<li>twitter/github: <span class="citation">@mistermocha</span></li>
+<li>bweber@twitter.com</li>
+</ul>
+<p><em>We're hiring!</em></p>
+</div>
+</body>
+</html>
